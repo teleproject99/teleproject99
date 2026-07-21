@@ -6,9 +6,6 @@ import warnings
 __all__ = ["what"]
 
 
-warnings._deprecated(__name__, remove=(3, 13))
-
-
 #-------------------------#
 # Recognize image headers #
 #-------------------------#
