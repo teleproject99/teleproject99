@@ -1,0 +1,11 @@
+2026-07-21 21:22:13,760 - __main__ - INFO - Database initialized: c:\smyards_bot\bot_final_fixed (antigravity)- current\listings.db
+2026-07-21 21:22:13,767 - __main__ - INFO - ✅ transactions_log table ready
+2026-07-21 21:22:13,769 - __main__ - INFO - ✅ Stage 3 migrations ready
+2026-07-21 21:22:13,771 - __main__ - INFO - ✅ Review tables ready
+2026-07-21 21:22:13,772 - __main__ - INFO - ✅ Stage 4 migrations ready
+2026-07-21 21:22:13,773 - __main__ - INFO - ✅ Created auto_pilot_packages table
+2026-07-21 21:22:13,774 - __main__ - INFO - ✅ Created ap_promo_posts and ap_guidance_posts tables
+2026-07-21 21:22:13,774 - __main__ - INFO - ✅ Stage 5 migrations ready
+2026-07-21 21:22:13,826 - __main__ - INFO - ✅ Flask webhook server started on port 8080
+2026-07-21 21:22:13,986 - __main__ - INFO - ✅ Scheduled weekly + monthly jobs registered
+2026-07-21 21:22:13,986 - __main__ - INFO - SMYARDS bot started
