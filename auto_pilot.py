@@ -427,17 +427,17 @@ def ensure_seller_profile(seller_telegram_id, seller_name, seller_contact):
     cursor.execute("SELECT telegram_id FROM users WHERE telegram_id = ?", (seller_telegram_id,))
     row = cursor.fetchone()
     if row:
-        # Update their username in case it changed
-        cursor.execute("UPDATE users SET username = ? WHERE telegram_id = ?", (real_username, seller_telegram_id))
+        # Update their username and display_name in case it changed
+        cursor.execute("UPDATE users SET username = ?, display_name = ? WHERE telegram_id = ?", (real_username, seller_name, seller_telegram_id))
         conn.commit()
         conn.close()
         return seller_telegram_id
         
     # Create a real profile for this seller
     cursor.execute("""
-        INSERT INTO users (telegram_id, username, badge_type) 
-        VALUES (?, ?, 'Regular')
-    """, (seller_telegram_id, real_username))
+        INSERT INTO users (telegram_id, username, display_name, badge_type) 
+        VALUES (?, ?, ?, 'Regular')
+    """, (seller_telegram_id, real_username, seller_name))
     conn.commit()
     conn.close()
     logger.info(f"✅ Created real seller profile for {real_username} (ID: {seller_telegram_id})")
