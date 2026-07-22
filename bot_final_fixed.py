@@ -159,6 +159,9 @@ def init_database():
         created_by INTEGER NOT NULL,
         last_bumped_at DATETIME,         -- TRACKS BUMP TIME
         bump_cooldown_days INTEGER DEFAULT 3, -- CUSTOMIZABLE COOLDOWN
+        likes INTEGER,
+        growth TEXT,
+        extra_monetization TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
     ''')
@@ -195,6 +198,9 @@ def init_database():
         status_flag TEXT DEFAULT 'pending',
         admin_notes TEXT,
         growth TEXT,
+        channel_link TEXT,
+        likes INTEGER,
+        extra_monetization TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
     ''')
@@ -531,13 +537,46 @@ def run_db_migrations():
     try:
         conn = sqlite3.connect(DATABASE_NAME)
         cursor = conn.cursor()
-        cursor.execute("PRAGMA table_info(listings)")
-        columns = [col[1] for col in cursor.fetchall()]
         
-        if 'last_bumped_at' not in columns:
-            cursor.execute("ALTER TABLE listings ADD COLUMN last_bumped_at DATETIME")
-        if 'bump_cooldown_days' not in columns:
-            cursor.execute("ALTER TABLE listings ADD COLUMN bump_cooldown_days INTEGER DEFAULT 3")
+        # 1. Migrate listings table
+        cursor.execute("PRAGMA table_info(listings)")
+        listings_cols = [col[1] for col in cursor.fetchall()]
+        
+        listings_to_add = [
+            ('last_bumped_at', 'DATETIME'),
+            ('bump_cooldown_days', 'INTEGER DEFAULT 3'),
+            ('likes', 'INTEGER'),
+            ('growth', 'TEXT'),
+            ('extra_monetization', 'TEXT')
+        ]
+        for col_name, col_type in listings_to_add:
+            if col_name not in listings_cols:
+                try:
+                    cursor.execute(f"ALTER TABLE listings ADD COLUMN {col_name} {col_type}")
+                    logger.info(f"✅ Added column {col_name} to listings table")
+                except Exception as e:
+                    logger.error(f"Failed to add column {col_name} to listings: {e}")
+                    
+        # 2. Migrate customer_listings table
+        cursor.execute("PRAGMA table_info(customer_listings)")
+        cust_cols = [col[1] for col in cursor.fetchall()]
+        
+        cust_to_add = [
+            ('admin_notes', 'TEXT'),
+            ('growth', 'TEXT'),
+            ('channel_link', 'TEXT'),
+            ('channel_age', 'TEXT'),
+            ('likes', 'INTEGER'),
+            ('extra_monetization', 'TEXT')
+        ]
+        for col_name, col_type in cust_to_add:
+            if col_name not in cust_cols:
+                try:
+                    cursor.execute(f"ALTER TABLE customer_listings ADD COLUMN {col_name} {col_type}")
+                    logger.info(f"✅ Added column {col_name} to customer_listings table")
+                except Exception as e:
+                    logger.error(f"Failed to add column {col_name} to customer_listings: {e}")
+                    
         conn.commit()
         conn.close()
     except Exception as e:
