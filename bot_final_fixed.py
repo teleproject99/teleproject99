@@ -1879,7 +1879,7 @@ def generate_buttons(listing_id, seller_contact=None, stock_message_id=None, sel
     # Clean seller_name by removing the word Support
     clean_seller_name = seller_name.replace(" Support", "").replace("Support", "").strip() if seller_name else "Seller"
     
-    badge_icon = "🛡️ VIP" if badge == "VIP" else ("🔹 Pro" if badge == "Pro" else "👤 Regular")
+    badge_icon = "👑 VIP" if badge == "VIP" else ("💎 Pro" if badge == "Pro" else "®️ Regular")
     rating_str = f"⭐ {rating:.1f} Rating" if rating > 0 else "⭐ New Rating"
     trades_str = f"🤝 {trades} Transactions"
     seller_btn_text = f"👤 {clean_seller_name} - {badge_icon} Seller - {rating_str} - {trades_str}"
@@ -1916,7 +1916,7 @@ def generate_buttons(listing_id, seller_contact=None, stock_message_id=None, sel
         # Row 3 - Sell + About
         [
             InlineKeyboardButton("💵 Sell Your Account", url=f"https://t.me/{BOT_USERNAME}?start=sell"),
-            InlineKeyboardButton("ℹ️ About US", url="https://t.me/smyard/3")
+            InlineKeyboardButton("🛡 About US", url="https://t.me/smyard/3")
         ],
         # Row 4 - Market (wide)
         [
@@ -2320,6 +2320,9 @@ def admin_button_callback(update, context):
     
     elif data.startswith("mark_completed_"):
         return admin_mark_order_completed(update, context)
+    
+    elif data.startswith("admin_delete_order_"):
+        return admin_delete_prepending_order(update, context)
     
     elif data.startswith("admin_listings_page_"):
         return admin_view_listings(update, context)
@@ -3365,7 +3368,7 @@ def customer_start(update, context):
         conn.close()
     
     dashboard_text = (
-        f"👋 <b>Welcome, {user.first_name}!</b>\n\n"
+        f"👋 <b>Welcome, {user.first_name} To Platform Dashboard!</b>\n\n"
         f"What would you like to do?"
     )
     
@@ -6737,12 +6740,46 @@ def admin_view_order_detail(update, context):
     if order_dict['transaction_group_link'] and order_dict['order_status'] != 'completed':
         keyboard.append([InlineKeyboardButton("✅ Mark as Completed", callback_data=f"mark_completed_{order_id}")])
     
+    # Allow deletion of pre-pending orders
+    if order_dict['order_status'] == 'pending' and order_dict['payment_status'] == 'pending':
+        keyboard.append([InlineKeyboardButton("🗑️ Delete This Order", callback_data=f"admin_delete_order_{order_id}")])
+    
     keyboard.append([InlineKeyboardButton("📦 Back to Orders", callback_data="admin_orders_panel")])
     
     query.answer()
     query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML)
     return MAIN_MENU
 
+
+def admin_delete_prepending_order(update, context):
+    """Delete a pre-pending order from the database."""
+    query = update.callback_query
+    order_id = int(query.data.replace("admin_delete_order_", ""))
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    # Safety check: only allow deleting orders that are still pre-pending
+    cursor.execute("SELECT order_number, order_status, payment_status FROM orders WHERE id = ?", (order_id,))
+    row = cursor.fetchone()
+
+    if not row:
+        conn.close()
+        query.answer("Order not found.", show_alert=True)
+        return MAIN_MENU
+
+    order_number, order_status, payment_status = row
+    if order_status != 'pending' or payment_status != 'pending':
+        conn.close()
+        query.answer("Only pre-pending orders can be deleted.", show_alert=True)
+        return MAIN_MENU
+
+    cursor.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+    conn.commit()
+    conn.close()
+
+    query.answer(f"Order {order_number} deleted.", show_alert=True)
+    # Refresh the pre-pending orders list
+    return admin_pre_pending_orders_panel(update, context)
 
 def customer_my_orders(update, context):
     """Show customer their orders."""
