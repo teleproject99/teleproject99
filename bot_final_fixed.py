@@ -473,11 +473,18 @@ def run_stage_3_migrations():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             telegram_id INTEGER UNIQUE NOT NULL,
             username TEXT,
+            display_name TEXT,
             badge_type TEXT DEFAULT 'Regular',
             badge_expires_at DATETIME,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
         ''')
+        
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN display_name TEXT")
+            logger.info("✅ Added display_name to users table")
+        except Exception:
+            pass
         
         # 2. Available Groups Table (for Group Pooling)
         cursor.execute('''
