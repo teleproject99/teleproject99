@@ -74,7 +74,9 @@ PLATFORMS = ["YouTube", "TikTok", "Instagram", "Facebook"]
 YOUTUBE_TYPES = ["Monetized Channel", "Aged Channel", "Gaming Channel", "Organic Channel", "3-Features Enabled Channel"]
 DEFAULT_TYPES = ["Verified Account", "Personal Account", "Business Account"]
 
-DATABASE_NAME = os.path.join(BASE_DIR, "listings.db")
+# Use Railway persistent volume if available, otherwise use local directory
+_DATA_DIR = os.getenv("DATABASE_DIR", os.path.join("/app/data" if os.path.isdir("/app/data") else BASE_DIR))
+DATABASE_NAME = os.path.join(_DATA_DIR, "listings.db")
 
 # ===== CUSTOMER CONVERSATION STATES =====
 # Admin states (0-15)
