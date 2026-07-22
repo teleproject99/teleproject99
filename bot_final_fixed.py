@@ -233,6 +233,47 @@ def init_database():
     )
     ''')
 
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS edit_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        listing_id TEXT NOT NULL,
+        field_name TEXT NOT NULL,
+        new_value TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS ap_guidance_media (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        post_id INTEGER NOT NULL,
+        file_id TEXT NOT NULL,
+        media_type TEXT NOT NULL DEFAULT 'photo',
+        sort_order INTEGER DEFAULT 0,
+        FOREIGN KEY(post_id) REFERENCES ap_guidance_posts(id) ON DELETE CASCADE
+    )
+    ''')
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS ap_promo_media (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        post_id INTEGER NOT NULL,
+        file_id TEXT NOT NULL,
+        media_type TEXT NOT NULL DEFAULT 'photo',
+        sort_order INTEGER DEFAULT 0,
+        FOREIGN KEY(post_id) REFERENCES ap_promo_posts(id) ON DELETE CASCADE
+    )
+    ''')
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS bot_settings (
+        setting_key TEXT PRIMARY KEY,
+        setting_value TEXT NOT NULL,
+        description TEXT
+    )
+    ''')
+
     # Add seller_id explicitly    
     cursor.execute('SELECT 1 FROM admins WHERE user_id = ?', (OWNER_ID,))
     if not cursor.fetchone():
