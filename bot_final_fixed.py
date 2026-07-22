@@ -329,6 +329,8 @@ def run_stage_5_migrations():
             seller_telegram_id INTEGER,
             txid TEXT,
             screenshots TEXT,
+            likes INTEGER,
+            extra_monetization TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
         ''')
@@ -352,6 +354,10 @@ def run_stage_5_migrations():
         try: cursor.execute("ALTER TABLE auto_pilot_packages ADD COLUMN last_generated_listing_id TEXT")
         except Exception: pass
         try: cursor.execute("ALTER TABLE auto_pilot_packages ADD COLUMN channel_age TEXT")
+        except Exception: pass
+        try: cursor.execute("ALTER TABLE auto_pilot_packages ADD COLUMN likes INTEGER")
+        except Exception: pass
+        try: cursor.execute("ALTER TABLE auto_pilot_packages ADD COLUMN extra_monetization TEXT")
         except Exception: pass
         logger.info("✅ Created auto_pilot_packages table")
         
