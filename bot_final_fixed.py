@@ -335,30 +335,31 @@ def run_stage_5_migrations():
         )
         ''')
         # Add columns if table already exists without them
-        try: cursor.execute("ALTER TABLE auto_pilot_packages ADD COLUMN seller_telegram_id INTEGER")
-        except Exception: pass
-        try: cursor.execute("ALTER TABLE auto_pilot_packages ADD COLUMN niche TEXT")
-        except Exception: pass
-        try: cursor.execute("ALTER TABLE auto_pilot_packages ADD COLUMN features TEXT")
-        except Exception: pass
-        try: cursor.execute("ALTER TABLE auto_pilot_packages ADD COLUMN monetization TEXT")
-        except Exception: pass
-        try: cursor.execute("ALTER TABLE auto_pilot_packages ADD COLUMN growth TEXT")
-        except Exception: pass
-        try: cursor.execute("ALTER TABLE auto_pilot_packages ADD COLUMN region TEXT")
-        except Exception: pass
-        try: cursor.execute("ALTER TABLE auto_pilot_packages ADD COLUMN status TEXT")
-        except Exception: pass
-        try: cursor.execute("ALTER TABLE auto_pilot_packages ADD COLUMN channel_link TEXT")
-        except Exception: pass
-        try: cursor.execute("ALTER TABLE auto_pilot_packages ADD COLUMN last_generated_listing_id TEXT")
-        except Exception: pass
-        try: cursor.execute("ALTER TABLE auto_pilot_packages ADD COLUMN channel_age TEXT")
-        except Exception: pass
-        try: cursor.execute("ALTER TABLE auto_pilot_packages ADD COLUMN likes INTEGER")
-        except Exception: pass
-        try: cursor.execute("ALTER TABLE auto_pilot_packages ADD COLUMN extra_monetization TEXT")
-        except Exception: pass
+        for col_name, col_type in [
+            ("seller_telegram_id", "INTEGER"),
+            ("niche", "TEXT"),
+            ("features", "TEXT"),
+            ("monetization", "TEXT"),
+            ("growth", "TEXT"),
+            ("region", "TEXT"),
+            ("status", "TEXT"),
+            ("channel_link", "TEXT"),
+            ("last_generated_listing_id", "TEXT"),
+            ("channel_age", "TEXT"),
+            ("likes", "INTEGER"),
+            ("extra_monetization", "TEXT")
+        ]:
+            try:
+                cursor.execute(f"ALTER TABLE auto_pilot_packages ADD COLUMN {col_name} {col_type}")
+                logger.info(f"✅ Successfully added column {col_name} to auto_pilot_packages")
+            except Exception as e:
+                # Silently ignore duplicate column errors, but log others
+                if "duplicate column name" not in str(e).lower():
+                    logger.warning(f"Failed to add column {col_name} to auto_pilot_packages: {e}")
+
+        cursor.execute("PRAGMA table_info(auto_pilot_packages)")
+        actual_cols = [r[1] for r in cursor.fetchall()]
+        logger.info(f"ℹ️ Current auto_pilot_packages columns: {actual_cols}")
         logger.info("✅ Created auto_pilot_packages table")
         
         cursor.execute('''
