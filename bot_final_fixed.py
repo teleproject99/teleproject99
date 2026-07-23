@@ -722,7 +722,7 @@ def is_admin(user_id):
 import random
 
 def generate_order_number(platform=None):
-    """Generate a sequential 6-digit order number (e.g. #120101)"""
+    """Generate a sequential 6-digit order number (e.g. 120101)"""
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT order_number FROM orders ORDER BY id DESC LIMIT 1")
@@ -731,14 +731,15 @@ def generate_order_number(platform=None):
     
     if row and row[0]:
         try:
-            last_num = int(row[0].replace('#', ''))
+            clean_str = row[0].replace('#', '').replace('ORD-', '')
+            last_num = int(clean_str)
             new_num = last_num + 1
         except Exception:
             new_num = 120000
     else:
         new_num = 120000
         
-    return f"#{new_num}"
+    return f"{new_num}"
 
 def calculate_escrow_fee(price, seller_id=None):
     """Calculate escrow fee (5% with $5 minimum). Applies 30% discount if seller is Pro, 60% if VIP."""
