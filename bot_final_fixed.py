@@ -1098,6 +1098,15 @@ def get_seller_username(seller_id):
         cur.execute("SELECT customer_username FROM customer_listings WHERE customer_id = ? LIMIT 1", (seller_id,))
         res = cur.fetchone()
         if res and res[0]: return res[0].strip().lstrip('@')
+        # Fall back to seller_contact URL from listings (e.g. https://t.me/DramaGodcoinDRG)
+        cur.execute("SELECT seller_contact FROM listings WHERE seller_telegram_id = ? AND seller_contact LIKE '%t.me/%' LIMIT 1", (seller_id,))
+        res = cur.fetchone()
+        if res and res[0]:
+            contact = res[0].strip()
+            if 't.me/' in contact:
+                username = contact.split('t.me/')[-1].strip('/').split('?')[0]
+                if username:
+                    return username
     except Exception:
         pass
     finally:
@@ -8968,7 +8977,7 @@ def seller_profile_listings(update, context):
     cursor = conn.cursor()
     cursor.execute(
         "SELECT listing_id, platform, subscribers, views, price FROM listings "
-        "WHERE created_by = ? AND status_flag = 'published' ORDER BY created_at DESC",
+        "WHERE seller_telegram_id = ? AND status_flag = 'published' ORDER BY created_at DESC",
         (seller_id,)
     )
     listings = cursor.fetchall()
