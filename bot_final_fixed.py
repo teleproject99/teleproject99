@@ -308,6 +308,49 @@ def init_database():
     run_stage_3_migrations()
     run_stage_4_migrations()
     run_stage_5_migrations()
+    seed_initial_listing_ids()
+
+def seed_initial_listing_ids():
+    """Seed initial listing IDs so the next listings start at the requested sequence."""
+    seeds = [
+        ('YT-211', 'YouTube'),
+        ('TT-191', 'TikTok'),
+        ('IG-158', 'Instagram'),
+        ('FB-109', 'Facebook')
+    ]
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        for seed_id, platform in seeds:
+            # Check if this exact seed ID or any higher ID already exists
+            prefix = seed_id.split('-')[0]
+            cursor.execute("SELECT listing_id FROM listings WHERE listing_id LIKE ?", (f"{prefix}-%",))
+            existing = cursor.fetchall()
+            
+            # Also check customer_listings
+            cursor.execute("SELECT listing_id FROM customer_listings WHERE listing_id LIKE ?", (f"{prefix}-%",))
+            existing.extend(cursor.fetchall())
+            
+            max_num = 0
+            for row in existing:
+                parts = row[0].split('-')
+                if len(parts) == 2 and parts[1].isdigit():
+                    max_num = max(max_num, int(parts[1]))
+            
+            target_num = int(seed_id.split('-')[1])
+            if max_num < target_num:
+                # Insert seed row
+                cursor.execute("""
+                    INSERT INTO listings (
+                        listing_id, platform, account_type, channel_age, subscribers, views, niche, features, 
+                        monetization, region, status, price, screenshots, seller_contact, status_flag, created_by, published_time
+                    ) VALUES (?, ?, 'N/A', 'N/A', 0, 0, 'N/A', 'N/A', 'N/A', 'N/A', 'No Strikes', 0, '', 'N/A', 'sold', 0, CURRENT_TIMESTAMP)
+                """, (seed_id, platform))
+                logger.info(f"✅ Seeded initial listing ID: {seed_id} for {platform}")
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error seeding initial listing IDs: {e}")
 
 def run_stage_5_migrations():
     """Run migrations for Phase 5 features (Auto Pilot Packages)."""
