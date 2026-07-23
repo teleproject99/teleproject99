@@ -86,8 +86,9 @@ DATABASE_NAME = os.path.join(_DATA_DIR, "listings.db")
     SCREENSHOT_ASK, SCREENSHOT_UPLOAD, CREATE_CONFIRM,
     MARK_SOLD, ENTER_PRODUCT_ID, ENTER_TXID, ENTER_PAYMENT_METHOD,
     ENTER_ORDER_NUMBER, ADMIN_RELIST_MENU, ADMIN_MARK_SOLD, ENTER_ORDER_TXID,
-    ASSIGN_UPGRADE_USER, ASSIGN_UPGRADE_TYPE, ASSIGN_UPGRADE_DUR
-) = range(20)
+    ASSIGN_UPGRADE_USER, ASSIGN_UPGRADE_TYPE, ASSIGN_UPGRADE_DUR,
+    ENTER_SELLER_NAME
+) = range(21)
 
 # Customer states (15-33)
 (
@@ -2805,13 +2806,53 @@ def admin_handle_seller_tg_id(update, context):
             update.message.reply_text("❌ Invalid Telegram ID. Please enter a numeric ID or type 'skip'.")
             return ENTER_PRODUCT_ID
     
+    # Now ask for seller display name
+    update.message.reply_text(
+        "✏️ *Enter Seller Display Name:*\n\n"
+        "This name will appear on the seller profile button.\n"
+        "Example: `Drama God`, `SubMarket`\n\n"
+        "Type 'skip' to use their Telegram username instead.",
+        parse_mode='MARKDOWN'
+    )
+    return ENTER_SELLER_NAME
+
+def admin_handle_seller_display_name(update, context):
+    """Handle seller display name input, save to users table, then show screenshot prompt."""
+    if 'listing' not in context.user_data:
+        return MAIN_MENU
+
+    text = update.message.text.strip()
+
+    if text.lower() == 'cancel':
+        update.message.reply_text("❌ Creation cancelled.")
+        context.user_data.clear()
+        return admin_start(update, context)
+
+    seller_tg_id = context.user_data["listing"].get("seller_telegram_id")
+    display_name = None if text.lower() == 'skip' else text
+
+    if seller_tg_id and display_name:
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO users (telegram_id, display_name)
+                VALUES (?, ?)
+                ON CONFLICT(telegram_id) DO UPDATE SET display_name = excluded.display_name
+            """, (seller_tg_id, display_name))
+            conn.commit()
+            conn.close()
+            logger.info(f"✅ Saved seller display name '{display_name}' for TG ID {seller_tg_id}")
+        except Exception as e:
+            logger.error(f"Failed to save seller display name: {e}")
+
     # Now show screenshot prompt
     keyboard = [
         [InlineKeyboardButton("📸 Yes, add screenshots", callback_data="add_screenshots")],
         [InlineKeyboardButton("⏭️ No, skip for now", callback_data="skip_screenshots")],
         [InlineKeyboardButton("🔙 Back", callback_data="back_to_seller_contact")]
     ]
-    
+
     update.message.reply_text(
         "📸 Add Screenshots?\n\n"
         f"You can add up to {MAX_SCREENSHOTS} screenshots of the account.\n"
@@ -9794,6 +9835,10 @@ def main():
             MARK_SOLD: [CallbackQueryHandler(admin_button_callback)],
             ENTER_PRODUCT_ID: [
                 MessageHandler(Filters.text & ~Filters.command, admin_handle_seller_tg_id),
+                CallbackQueryHandler(admin_button_callback)
+            ],
+            ENTER_SELLER_NAME: [
+                MessageHandler(Filters.text & ~Filters.command, admin_handle_seller_display_name),
                 CallbackQueryHandler(admin_button_callback)
             ],
             ENTER_TXID: [
