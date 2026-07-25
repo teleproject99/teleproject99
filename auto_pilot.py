@@ -614,8 +614,8 @@ def ap_play_part_2(update, context):
         buyer_id = random.randint(-900000, -800000) # Fake buyer ID for the simulated order
         
         cursor.execute("""
-            INSERT INTO orders (order_number, product_id, customer_id, customer_username, platform, total_price, escrow_fee, amount_to_pay, payment_method, payment_address, payment_status, seller_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?)
+            INSERT INTO orders (order_number, product_id, customer_id, customer_username, platform, total_price, escrow_fee, amount_to_pay, payment_method, payment_address, payment_status, seller_id, order_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?, 'completed')
         """, (order_num, product_id, buyer_id, buyer_name, pkg['platform'], pkg['price'], bot_main.calculate_escrow_fee(pkg['price']), pkg['price'], 'Crypto', 'FakeAddr', seller_id))
         
         cursor.execute("""
