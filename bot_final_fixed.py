@@ -2043,7 +2043,7 @@ def generate_buttons(listing_id, seller_contact=None, stock_message_id=None, sel
     
     badge_icon = "👑 VIP" if badge == "VIP" else ("💎 Pro" if badge == "Pro" else "®️ Regular")
     rating_str = f"⭐ {rating:.1f} Rating" if rating > 0 else "⭐ New Rating"
-    trades_str = f"🤝 {trades} Transactions"
+    trades_str = f"🤝 {trades} Deals"
     seller_btn_text = f"👤 {clean_seller_name} - {badge_icon} Seller - {rating_str} - {trades_str}"
 
     # Extract seller username for contact button
