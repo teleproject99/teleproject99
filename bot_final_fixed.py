@@ -621,6 +621,18 @@ def run_db_migrations():
                 except Exception as e:
                     logger.error(f"Failed to add column {col_name} to customer_listings: {e}")
                     
+        # 3. Complete orders that are logged as completed in transactions_log
+        try:
+            cursor.execute("""
+                UPDATE orders 
+                SET order_status = 'completed' 
+                WHERE order_status != 'completed' 
+                AND order_number IN (SELECT order_number FROM transactions_log WHERE status = 'completed')
+            """)
+            logger.info("✅ Migrated completed orders status from transactions_log")
+        except Exception as e:
+            logger.error(f"Error migrating completed orders: {e}")
+
         conn.commit()
         conn.close()
     except Exception as e:
@@ -6930,9 +6942,8 @@ def admin_view_order_detail(update, context):
     if order_dict['transaction_group_link'] and order_dict['order_status'] != 'completed':
         keyboard.append([InlineKeyboardButton("✅ Mark as Completed", callback_data=f"mark_completed_{order_id}")])
     
-    # Allow deletion of pre-pending orders
-    if order_dict['order_status'] == 'pending' and order_dict['payment_status'] == 'pending':
-        keyboard.append([InlineKeyboardButton("🗑️ Delete This Order", callback_data=f"admin_delete_order_{order_id}")])
+    # Allow deletion of any order
+    keyboard.append([InlineKeyboardButton("🗑️ Delete This Order", callback_data=f"admin_delete_order_{order_id}")])
     
     keyboard.append([InlineKeyboardButton("📦 Back to Orders", callback_data="admin_orders_panel")])
     
@@ -6942,13 +6953,12 @@ def admin_view_order_detail(update, context):
 
 
 def admin_delete_prepending_order(update, context):
-    """Delete a pre-pending order from the database."""
+    """Delete any order from the database."""
     query = update.callback_query
     order_id = int(query.data.replace("admin_delete_order_", ""))
 
     conn = get_connection()
     cursor = conn.cursor()
-    # Safety check: only allow deleting orders that are still pre-pending
     cursor.execute("SELECT order_number, order_status, payment_status FROM orders WHERE id = ?", (order_id,))
     row = cursor.fetchone()
 
@@ -6958,18 +6968,18 @@ def admin_delete_prepending_order(update, context):
         return MAIN_MENU
 
     order_number, order_status, payment_status = row
-    if order_status != 'pending' or payment_status != 'pending':
-        conn.close()
-        query.answer("Only pre-pending orders can be deleted.", show_alert=True)
-        return MAIN_MENU
 
     cursor.execute("DELETE FROM orders WHERE id = ?", (order_id,))
     conn.commit()
     conn.close()
 
     query.answer(f"Order {order_number} deleted.", show_alert=True)
-    # Refresh the pre-pending orders list
-    return admin_pre_pending_orders_panel(update, context)
+    
+    # Redirect dynamically based on the type of order that was deleted
+    if payment_status == 'confirmed':
+        return admin_orders_panel(update, context)
+    else:
+        return admin_pre_pending_orders_panel(update, context)
 
 def customer_my_orders(update, context):
     """Show customer their orders."""
