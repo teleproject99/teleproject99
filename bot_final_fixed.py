@@ -101,6 +101,8 @@ DATABASE_NAME = os.path.join(_DATA_DIR, "listings.db")
     CUSTOMER_EDIT_FIELD, CUSTOMER_EDIT_INPUT
 ) = range(15, 34)
 
+SELLER_USERNAME = 34  # Extra state: ask seller for their Telegram username after screenshots
+
 # Browse / Search states (33-39)
 (
     BROWSE_MENU, BROWSE_PLATFORM_LIST, BROWSE_LISTING_DETAIL,
@@ -4960,7 +4962,7 @@ def handle_customer_screenshot_upload(update, context):
         
         if count >= MAX_SCREENSHOTS:
             update.message.reply_text(f"✅ Maximum {MAX_SCREENSHOTS} screenshots reached!")
-            return show_customer_preview(update, context)
+            return ask_customer_seller_username(update, context)
         else:
             update.message.reply_text(f"📸 Screenshot {count} received!\nSend another photo or type 'done' to finish.")
     elif update.message.text:
@@ -4969,7 +4971,7 @@ def handle_customer_screenshot_upload(update, context):
             if len(context.user_data.get('customer_screenshots', [])) == 0:
                 update.message.reply_text("❌ Screenshots are required. Please upload at least 1 screenshot, or type 'cancel' to exit.")
                 return SELLER_SCREENSHOTS
-            return show_customer_preview(update, context)
+            return ask_customer_seller_username(update, context)
         elif text == 'cancel':
             update.message.reply_text("❌ Listing cancelled.")
             return customer_start(update, context)
@@ -5020,6 +5022,81 @@ def customer_skip_screenshots(update, context):
     query.answer()
     
     context.user_data["customer_screenshots"] = []
+    return ask_customer_seller_username(update, context)
+
+def ask_customer_seller_username(update, context):
+    """Ask the seller for their Telegram username — last step before listing preview."""
+    user = update.effective_user
+    auto_username = user.username  # May be None if user has no TG username set
+    context.user_data['auto_detected_username'] = auto_username
+
+    if auto_username:
+        prompt = (
+            f"📱 *One Last Step!*\n\n"
+            f"Your Telegram username was detected as: `@{auto_username}`\n\n"
+            f"Type *confirm* to use it for the 'Contact Seller' button,\n"
+            f"or type a different `@username` to override it.\n\n"
+            f"Type 'cancel' to abort."
+        )
+    else:
+        prompt = (
+            f"📱 *Enter Your Telegram Username:*\n\n"
+            f"Example: `@myusername`\n\n"
+            f"This is used for the *Contact Seller* button so buyers can message you directly.\n\n"
+            f"Type 'cancel' to abort."
+        )
+
+    # Works whether we arrived from a photo/text message or a callback button
+    if update.message:
+        update.message.reply_text(prompt, parse_mode='MARKDOWN')
+    elif update.callback_query:
+        update.callback_query.message.reply_text(prompt, parse_mode='MARKDOWN')
+
+    return SELLER_USERNAME
+
+def handle_customer_seller_username(update, context):
+    """Process the seller's username input (mandatory), save it, then show the listing preview."""
+    text = update.message.text.strip()
+
+    if text.lower() == 'cancel':
+        update.message.reply_text("❌ Listing cancelled.")
+        return customer_start(update, context)
+
+    auto_username = context.user_data.get('auto_detected_username')
+    user = update.effective_user
+
+    if text.lower() == 'confirm':
+        username = auto_username
+    else:
+        username = text.lstrip('@').strip()
+
+    # Reject blank or invalid entries — username is mandatory
+    if not username:
+        update.message.reply_text(
+            "❌ Username is required and cannot be skipped.\n\n"
+            "Please enter your Telegram username (e.g. `@myusername`), "
+            "or type 'cancel' to abort.",
+            parse_mode='MARKDOWN'
+        )
+        return SELLER_USERNAME
+
+    if username:
+        context.user_data["customer_listing"]["seller_contact"] = f"https://t.me/{username}"
+        # Persist username to users table so get_seller_username() finds it immediately
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO users (telegram_id, username)
+                VALUES (?, ?)
+                ON CONFLICT(telegram_id) DO UPDATE SET username = excluded.username
+            """, (user.id, username))
+            conn.commit()
+            conn.close()
+            logger.info(f"✅ Saved seller username '@{username}' for TG ID {user.id}")
+        except Exception as e:
+            logger.error(f"Failed to save seller username: {e}")
+
     return show_customer_preview(update, context)
 
 def customer_submit_listing(update, context):
@@ -9971,6 +10048,9 @@ def main():
                 MessageHandler(Filters.photo, handle_customer_screenshot_upload),
                 MessageHandler(Filters.text & ~Filters.command, handle_customer_screenshot_upload),
                 CallbackQueryHandler(customer_callback)
+            ],
+            SELLER_USERNAME: [
+                MessageHandler(Filters.text & ~Filters.command, handle_customer_seller_username),
             ],
             SELLER_CONFIRM: [CallbackQueryHandler(customer_callback)],
             CUSTOMER_MANAGE_LISTINGS: [CallbackQueryHandler(customer_callback)],
