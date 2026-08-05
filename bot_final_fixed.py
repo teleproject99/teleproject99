@@ -2049,23 +2049,7 @@ def generate_buttons(listing_id, seller_contact=None, stock_message_id=None, sel
     seller_btn_text = f"👤 {clean_seller_name} - {badge_icon} Seller - {rating_str} - {trades_str}"
 
     # Extract seller username for contact button
-    seller_contact_username = ""
-    if seller_contact:
-        import urllib.parse
-        seller_contact_username = seller_contact.split('/')[-1].replace('@', '').strip()
-        # If it's malformed like "EliteTube Support", try to get it from db instead
-        if " " in seller_contact_username and seller_id:
-            conn = get_connection()
-            try:
-                cur = conn.cursor()
-                cur.execute("SELECT customer_username FROM customer_listings WHERE customer_id = ? LIMIT 1", (seller_id,))
-                res = cur.fetchone()
-                if res and res[0]:
-                    seller_contact_username = res[0]
-            except:
-                pass
-            finally:
-                conn.close()
+    seller_contact_username = get_seller_username(seller_id) if seller_id else "smyards"
 
     keyboard = [
         # Row 1 - Seller Info (wide)
