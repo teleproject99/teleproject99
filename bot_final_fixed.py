@@ -2066,9 +2066,10 @@ def generate_buttons(listing_id, seller_contact=None, stock_message_id=None, sel
             InlineKeyboardButton("💵 Sell Your Account", url=f"https://t.me/{BOT_USERNAME}?start=sell"),
             InlineKeyboardButton("🛡 About US", url="https://t.me/smyard/3")
         ],
-        # Row 4 - Market (wide)
+        # Row 4 - Market & Community
         [
-            InlineKeyboardButton("🏛 Accounts Market", url=f"https://t.me/{BOT_USERNAME}?start=browse")
+            InlineKeyboardButton("🏛 Accounts Market", url=f"https://t.me/{BOT_USERNAME}?start=browse"),
+            InlineKeyboardButton("👥 Our Community", url="https://t.me/smyardchat")
         ],
         # Row 5 - Contact Admin + Help Center
         [
