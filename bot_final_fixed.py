@@ -9882,6 +9882,11 @@ def main():
     # Noop handler: silently dismisses separator buttons in review DMs
     dispatcher.add_handler(CallbackQueryHandler(lambda u, c: u.callback_query.answer(), pattern='^noop$'))
 
+    # Register Auto Pilot module BEFORE ConversationHandlers so its standalone
+    # CallbackQueryHandlers take priority over the broad customer ConversationHandler.
+    import auto_pilot
+    auto_pilot.register_handlers(dispatcher)
+
     admin_conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler('admin', admin_start),
@@ -10069,10 +10074,8 @@ def main():
     )
     dispatcher.add_handler(customer_conv_handler)
     
-    # Register Auto Pilot module
-    import auto_pilot
-    auto_pilot.register_handlers(dispatcher)
-    
+
+
     # Handler for tracking new deal group members
     dispatcher.add_handler(MessageHandler(Filters.status_update.new_chat_members, handle_new_group_member))
     
