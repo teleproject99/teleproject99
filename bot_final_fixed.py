@@ -3314,7 +3314,7 @@ This listing has been sold via escrow.
                 # Most listing posts are photos, so try caption edit first
                 bot.edit_message_caption(
                     chat_id=chat_id,
-                    message_id=int(msg_id_str),
+                    message_id=int(buttons_msg_id),
                     caption=sold_text,
                     parse_mode=ParseMode.HTML,
                     reply_markup=InlineKeyboardMarkup(keyboard)
@@ -3324,14 +3324,14 @@ This listing has been sold via escrow.
                 try:
                     bot.edit_message_text(
                         chat_id=chat_id,
-                        message_id=int(msg_id_str),
+                        message_id=int(buttons_msg_id),
                         text=sold_text,
                         parse_mode=ParseMode.HTML,
                         disable_web_page_preview=True,
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
                 except Exception as ex:
-                    logger.error(f"Error updating post as sold {msg_id_str}: {ex}")
+                    logger.error(f"Error updating post as sold {buttons_msg_id}: {ex}")
         return True
         
     except Exception as e:
@@ -5010,64 +5010,13 @@ def customer_skip_screenshots(update, context):
     return ask_customer_seller_username(update, context)
 
 def ask_customer_seller_username(update, context):
-    """Ask the seller for their Telegram username — last step before listing preview."""
+    """Auto-save Telegram username if detectable; only ask manually if the user has none set."""
     user = update.effective_user
-    auto_username = user.username  # May be None if user has no TG username set
-    context.user_data['auto_detected_username'] = auto_username
+    auto_username = user.username  # None if user has never set a TG username
 
     if auto_username:
-        prompt = (
-            f"📱 *One Last Step!*\n\n"
-            f"Your Telegram username was detected as: `@{auto_username}`\n\n"
-            f"Type *confirm* to use it for the 'Contact Seller' button,\n"
-            f"or type a different `@username` to override it.\n\n"
-            f"Type 'cancel' to abort."
-        )
-    else:
-        prompt = (
-            f"📱 *Enter Your Telegram Username:*\n\n"
-            f"Example: `@myusername`\n\n"
-            f"This is used for the *Contact Seller* button so buyers can message you directly.\n\n"
-            f"Type 'cancel' to abort."
-        )
-
-    # Works whether we arrived from a photo/text message or a callback button
-    if update.message:
-        update.message.reply_text(prompt, parse_mode='MARKDOWN')
-    elif update.callback_query:
-        update.callback_query.message.reply_text(prompt, parse_mode='MARKDOWN')
-
-    return SELLER_USERNAME
-
-def handle_customer_seller_username(update, context):
-    """Process the seller's username input (mandatory), save it, then show the listing preview."""
-    text = update.message.text.strip()
-
-    if text.lower() == 'cancel':
-        update.message.reply_text("❌ Listing cancelled.")
-        return customer_start(update, context)
-
-    auto_username = context.user_data.get('auto_detected_username')
-    user = update.effective_user
-
-    if text.lower() == 'confirm':
-        username = auto_username
-    else:
-        username = text.lstrip('@').strip()
-
-    # Reject blank or invalid entries — username is mandatory
-    if not username:
-        update.message.reply_text(
-            "❌ Username is required and cannot be skipped.\n\n"
-            "Please enter your Telegram username (e.g. `@myusername`), "
-            "or type 'cancel' to abort.",
-            parse_mode='MARKDOWN'
-        )
-        return SELLER_USERNAME
-
-    if username:
-        context.user_data["customer_listing"]["seller_contact"] = f"https://t.me/{username}"
-        # Persist username to users table so get_seller_username() finds it immediately
+        # Username is available — save it silently and go straight to preview
+        context.user_data["customer_listing"]["seller_contact"] = f"https://t.me/{auto_username}"
         try:
             conn = get_connection()
             cursor = conn.cursor()
@@ -5075,12 +5024,68 @@ def handle_customer_seller_username(update, context):
                 INSERT INTO users (telegram_id, username)
                 VALUES (?, ?)
                 ON CONFLICT(telegram_id) DO UPDATE SET username = excluded.username
-            """, (user.id, username))
+            """, (user.id, auto_username))
             conn.commit()
             conn.close()
-            logger.info(f"✅ Saved seller username '@{username}' for TG ID {user.id}")
+            logger.info(f"✅ Auto-saved seller username '@{auto_username}' for TG ID {user.id}")
         except Exception as e:
-            logger.error(f"Failed to save seller username: {e}")
+            logger.error(f"Failed to auto-save seller username: {e}")
+        return show_customer_preview(update, context)
+
+    # No username on their Telegram account — must ask them to enter one manually
+    context.user_data['auto_detected_username'] = None
+    prompt = (
+        f"📱 *Enter Your Telegram Username:*\n\n"
+        f"Example: `@myusername`\n\n"
+        f"This is used for the *Contact Seller* button so buyers can message you directly.\n\n"
+        f"Type 'cancel' to abort."
+    )
+    if update.message:
+        update.message.reply_text(prompt, parse_mode='MARKDOWN')
+    elif update.callback_query:
+        update.callback_query.message.reply_text(prompt, parse_mode='MARKDOWN')
+    return SELLER_USERNAME
+
+def handle_customer_seller_username(update, context):
+    """Process the manually entered username (only reached when auto-detection was not possible)."""
+    text = update.message.text.strip()
+    user = update.effective_user
+
+    if text.lower() == 'cancel':
+        update.message.reply_text("❌ Listing cancelled.")
+        return customer_start(update, context)
+
+    username = text.lstrip('@').strip()
+
+    # Validate Telegram username format: 5-32 chars, only letters/digits/underscores, no spaces
+    import re
+    if not username or not re.match(r'^[A-Za-z0-9_]{5,32}$', username):
+        update.message.reply_text(
+            "❌ *Invalid username format.*\n\n"
+            "A Telegram username must:\n"
+            "• Contain only letters, numbers, or underscores (`_`)\n"
+            "• Be between 5 and 32 characters\n"
+            "• Have *no spaces*\n\n"
+            "Example: `@ahmed_morad`\n\n"
+            "Please enter your correct Telegram username, or type 'cancel' to abort.",
+            parse_mode='MARKDOWN'
+        )
+        return SELLER_USERNAME
+
+    context.user_data["customer_listing"]["seller_contact"] = f"https://t.me/{username}"
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO users (telegram_id, username)
+            VALUES (?, ?)
+            ON CONFLICT(telegram_id) DO UPDATE SET username = excluded.username
+        """, (user.id, username))
+        conn.commit()
+        conn.close()
+        logger.info(f"✅ Saved seller username '@{username}' for TG ID {user.id}")
+    except Exception as e:
+        logger.error(f"Failed to save seller username: {e}")
 
     return show_customer_preview(update, context)
 
