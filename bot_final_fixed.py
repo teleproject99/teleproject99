@@ -5424,7 +5424,37 @@ def back_to_payment_methods(update, context):
 def admin_panel(update, context):
     return admin_start(update, context)
 
+def admin_backup_db(update, context):
+    """Admin command to download the SQLite database."""
+    if update.effective_user.id != OWNER_ID:
+        return
+        
+    try:
+        with open(DATABASE_NAME, 'rb') as f:
+            update.message.reply_document(document=f, filename="listings.db", caption="Here is your current database backup.\nKeep this safe!")
+    except Exception as e:
+        update.message.reply_text(f"Failed to backup database: {e}")
 
+def admin_restore_db(update, context):
+    """Admin command to restore the SQLite database. Usage: reply to a .db file with /restore"""
+    if update.effective_user.id != OWNER_ID:
+        return
+        
+    if not update.message.reply_to_message or not update.message.reply_to_message.document:
+        update.message.reply_text("❌ You must reply to a .db file with `/restore` to use this command.", parse_mode='MARKDOWN')
+        return
+        
+    document = update.message.reply_to_message.document
+    if not document.file_name.endswith('.db'):
+        update.message.reply_text("❌ The file must be a .db file.")
+        return
+        
+    try:
+        file = context.bot.get_file(document.file_id)
+        file.download(custom_path=DATABASE_NAME)
+        update.message.reply_text("✅ **Database successfully restored!**\nAll old users, listings, and orders are now active on this host.", parse_mode='MARKDOWN')
+    except Exception as e:
+        update.message.reply_text(f"Failed to restore database: {e}")
 def admin_setname(update, context):
     """Admin command to set a seller's display name. Usage: /setname <telegram_id> <New Name>"""
     if update.effective_user.id != OWNER_ID:
@@ -9875,6 +9905,8 @@ def main():
     ), group=1)
     dispatcher.add_handler(CommandHandler('check_order', debug_check_order))
     dispatcher.add_handler(CommandHandler('setname', admin_setname))
+    dispatcher.add_handler(CommandHandler('backup', admin_backup_db))
+    dispatcher.add_handler(CommandHandler('restore', admin_restore_db))
     dispatcher.add_handler(CommandHandler('check_seller', admin_check_seller_id))
     dispatcher.add_handler(CommandHandler('pool', admin_pool_group))
     dispatcher.add_error_handler(error_handler)
